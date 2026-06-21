@@ -1,4 +1,4 @@
-iimport { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { generateJSON } from "@/lib/ai/gemini";
 import { prisma } from "@/lib/prisma";
 
