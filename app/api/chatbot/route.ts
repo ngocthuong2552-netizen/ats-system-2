@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { anthropic, AI_MODEL } from "@/lib/ai/claude";
+import { generateText } from "@/lib/ai/gemini";
 import { prisma } from "@/lib/prisma";
 
-// Lightweight RAG: pull candidate/application context relevant to the question,
-// plus a small static SOP knowledge base, and let Claude answer grounded in it.
+export const dynamic = "force-dynamic";
 
 const SOP_KNOWLEDGE = `
 AIV Long-Term Volunteer Recruitment SOP:
@@ -21,7 +20,6 @@ export async function POST(req: Request) {
   const { question } = await req.json();
   if (!question) return NextResponse.json({ error: "question required" }, { status: 400 });
 
-  // Naive name-based lookup: try to find a candidate whose name appears in the question
   const candidates = await prisma.candidate.findMany({
     include: { applications: { include: { jobOpening: true } } },
   });
@@ -41,13 +39,8 @@ export async function POST(req: Request) {
       .join("\n\n");
   }
 
-  const msg = await anthropic.messages.create({
-    model: AI_MODEL,
-    max_tokens: 600,
-    messages: [
-      {
-        role: "user",
-        content: `You are an internal HR assistant for AI for Vietnam's ATS. Answer the HR user's question using ONLY the data and SOP below. If the answer isn't in the data, say you don't have that information in the system.
+  try {
+    const answer = await generateText(`You are an internal HR assistant for AI for Vietnam's ATS. Answer the HR user's question using ONLY the data and SOP below. If the answer isn't in the data, say you don't have that information in the system.
 
 === RECRUITMENT SOP ===
 ${SOP_KNOWLEDGE}
@@ -58,15 +51,10 @@ ${candidateContext}
 === QUESTION ===
 ${question}
 
-Answer concisely in 2-4 sentences.`,
-      },
-    ],
-  });
+Answer concisely in 2-4 sentences.`);
 
-  const answer = msg.content
-    .filter((b) => b.type === "text")
-    .map((b: any) => b.text)
-    .join("\n");
-
-  return NextResponse.json({ answer });
+    return NextResponse.json({ answer });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "AI request failed" }, { status: 502 });
+  }
 }
