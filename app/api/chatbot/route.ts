@@ -3,6 +3,7 @@ import { generateText } from "@/lib/ai/gemini";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // allow up to 60s for Gemini response (Hobby plan max)
 
 const SOP_KNOWLEDGE = `
 AIV Long-Term Volunteer Recruitment SOP:
