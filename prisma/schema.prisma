@@ -1,23 +1,16 @@
 // Prisma schema for AIV ATS (Recruitment) System
-// Datasource = SQLite (zero-setup, file-based, persists to disk).
-// NOTE: SQLite does not support native Prisma `enum` types, so all enum-like
-// fields below are `String` with the allowed values documented in comments
-// and enforced at the application layer (Zod schemas / API routes).
-// To use Postgres (Supabase/Neon) instead: change provider to "postgresql",
-// set DATABASE_URL accordingly, and you may reintroduce real `enum` blocks.
+// Datasource = Postgres (Supabase).
+// NOTE: enum-like fields below are `String` with allowed values documented
+// in comments and enforced at the application layer (Zod schemas / API routes).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-
-// ---------------------------------------------------------------------------
-// ACCOUNTS / AUTH
-// ---------------------------------------------------------------------------
 
 // role: ADMIN | HR | HIRING_MANAGER | INTERVIEWER
 model User {
@@ -35,10 +28,6 @@ model User {
   activityLogs     ActivityLog[]
   interviewPanels  InterviewPanelist[]
 }
-
-// ---------------------------------------------------------------------------
-// RECRUITMENT REQUEST -> JOB OPENING
-// ---------------------------------------------------------------------------
 
 // status: SUBMITTED | UNDER_REVIEW | APPROVED | REJECTED | NEEDS_INFO
 // priority: LOW | MEDIUM | HIGH | URGENT
@@ -77,10 +66,6 @@ model JobOpening {
   applications Application[]
 }
 
-// ---------------------------------------------------------------------------
-// CANDIDATE / APPLICATION
-// ---------------------------------------------------------------------------
-
 model Candidate {
   id              String   @id @default(uuid())
   fullName        String
@@ -92,10 +77,10 @@ model Candidate {
   talentPool      Boolean  @default(false)
   cvFileUrl       String?
   cvFileName      String?
-  skills          String?  // JSON-encoded string[]
+  skills          String?
   experienceYears Int?
-  education       String?  // JSON-encoded
-  certifications  String?  // JSON-encoded
+  education       String?
+  certifications  String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -120,7 +105,7 @@ model Application {
   matchingRationale String?
   fastTrackOverride Boolean    @default(false)
   fastTrackNote     String?
-  docusignStatus    String?    @default("not_sent") // not_sent / sent / signed
+  docusignStatus    String?    @default("not_sent")
   appliedAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
@@ -128,10 +113,6 @@ model Application {
   emailLogs    EmailLog[]
   activityLogs ActivityLog[]
 }
-
-// ---------------------------------------------------------------------------
-// INTERVIEW / EVALUATION
-// ---------------------------------------------------------------------------
 
 // round: CULTURE_FIT | TECHNICAL
 model Interview {
@@ -164,15 +145,11 @@ model Evaluation {
   interview      Interview @relation(fields: [interviewId], references: [id])
   interviewerId  String
   interviewer    User     @relation(fields: [interviewerId], references: [id])
-  criteriaScores String   // JSON-encoded { criterion: score }
+  criteriaScores String
   recommendation String
   notes          String?
   createdAt      DateTime @default(now())
 }
-
-// ---------------------------------------------------------------------------
-// EMAIL TEMPLATES + LOG
-// ---------------------------------------------------------------------------
 
 model EmailTemplate {
   id           String   @id @default(uuid())
@@ -180,7 +157,7 @@ model EmailTemplate {
   purpose      String
   subject      String
   body         String
-  mergeFields  String   // JSON-encoded string[]
+  mergeFields  String
   updatedAt    DateTime @updatedAt
 }
 
@@ -191,14 +168,10 @@ model EmailLog {
   templateKey     String
   renderedSubject String
   renderedBody    String
-  status          String      @default("draft") // draft / sent
+  status          String      @default("draft")
   sentAt          DateTime?
   createdAt       DateTime    @default(now())
 }
-
-// ---------------------------------------------------------------------------
-// NOTES + ACTIVITY LOG (audit trail, §10.4)
-// ---------------------------------------------------------------------------
 
 model Note {
   id          String    @id @default(uuid())
@@ -216,7 +189,7 @@ model ActivityLog {
   application   Application? @relation(fields: [applicationId], references: [id])
   userId        String
   user          User         @relation(fields: [userId], references: [id])
-  action        String       // e.g. "stage_change", "email_sent", "evaluation_submitted"
+  action        String
   fromValue     String?
   toValue       String?
   createdAt     DateTime     @default(now())
