@@ -217,7 +217,104 @@ async function main() {
       },
     });
   }
+// ---- THÊM VÀO ĐÂY ----
 
+  console.log("Seeding sample candidates...");
+
+  // Tạo Opening mẫu (cần có 1 user HR làm hiringManager)
+  const hrUser = await prisma.user.findFirst({ where: { role: "HR" } });
+  if (hrUser) {
+    const request = await prisma.hiringRequest.create({
+      data: {
+        hiringManagerId: hrUser.id,
+        jobTitle: "Frontend Developer",
+        team: "Engineering",
+        headcount: 2,
+        priority: "HIGH",
+        reason: "Mở rộng team Engineering Q3 2025",
+        targetOnboardingDate: new Date("2025-09-01"),
+        status: "APPROVED",
+      },
+    });
+
+    const opening = await prisma.jobOpening.create({
+      data: {
+        requestId: request.id,
+        title: "Frontend Developer",
+        team: "Engineering",
+        openingsCount: 2,
+        status: "OPEN",
+        jdText: "We are looking for a Frontend Developer to join our Engineering team.",
+      },
+    });
+
+    // Candidate 1
+    await prisma.candidate.create({
+      data: {
+        fullName: "Nguyen Van A",
+        email: "[email protected]",
+        phone: "0901234567",
+        country: "Vietnam",
+        skills: JSON.stringify(["React", "TypeScript", "NextJS"]),
+        experienceYears: 3,
+        applications: {
+          create: {
+            jobOpeningId: opening.id,
+            source: "LinkedIn",
+            stage: "CV_SCREENING",
+            status: "ACTIVE",
+          },
+        },
+      },
+    });
+
+    // Candidate 2
+    await prisma.candidate.create({
+      data: {
+        fullName: "Tran Thi B",
+        email: "[email protected]",
+        phone: "0912345678",
+        country: "Vietnam",
+        isReferral: true,
+        referrer: "Team Lead Minh",
+        skills: JSON.stringify(["Python", "Machine Learning", "FastAPI"]),
+        experienceYears: 5,
+        applications: {
+          create: {
+            jobOpeningId: opening.id,
+            source: "Referral",
+            stage: "CULTURE_FIT",
+            status: "ACTIVE",
+          },
+        },
+      },
+    });
+
+    // Candidate 3
+    await prisma.candidate.create({
+      data: {
+        fullName: "Le Hoang C",
+        email: "[email protected]",
+        phone: "0923456789",
+        country: "Vietnam",
+        skills: JSON.stringify(["UI/UX", "Figma", "React"]),
+        experienceYears: 2,
+        talentPool: true,
+        applications: {
+          create: {
+            jobOpeningId: opening.id,
+            source: "Website",
+            stage: "APPLIED",
+            status: "ACTIVE",
+          },
+        },
+      },
+    });
+
+    console.log("Sample data seeded: 1 opening, 3 candidates");
+  }
+
+  // ---- KẾT THÚC PHẦN THÊM ----
   console.log("Done. Demo logins:");
   demoUsers.forEach((u) => console.log(`  ${u.email} / ${u.password} (${u.role})`));
 }
