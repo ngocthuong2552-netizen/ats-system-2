@@ -72,7 +72,6 @@ export default function OpeningDetailPage() {
     });
     const candidate = await res.json();
 
-    // FR-3.2: auto AI-parse the uploaded CV right after intake
     if (cvText && candidate?.id) {
       await fetch(`/api/candidates/${candidate.id}/parse-cv`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -156,23 +155,38 @@ export default function OpeningDetailPage() {
           <div className="col-span-2 text-xs text-slate-400">
             Có thể bỏ trống CV và nhập tay; có thể parse lại sau ở trang Candidate Profile.
           </div>
-          <div className="col-span-2"><button className="btn-primary" type="submit" disabled={uploading}>
-            {uploading ? "Đang upload & trích xuất..." : "Add"}
-          </button></div>
+          <div className="col-span-2">
+            <button className="btn-primary" type="submit" disabled={uploading}>
+              {uploading ? "Đang upload & trích xuất..." : "Add"}
+            </button>
+          </div>
         </form>
       )}
 
       <div className="grid grid-cols-7 gap-3 overflow-x-auto">
         {STAGES.map((stage) => (
           <div key={stage} className="min-w-[180px] bg-slate-50 rounded-lg p-3">
-            <p className="text-sm font-medium mb-2">{STAGE_LABELS[stage]} <span className="text-slate-400">({byStage[stage].length})</span></p>
+            <p className="text-sm font-medium mb-2">
+              {STAGE_LABELS[stage]} <span className="text-slate-400">({byStage[stage].length})</span>
+            </p>
             <div className="space-y-2">
               {byStage[stage].map((a: any) => (
                 <div key={a.id} className="bg-white rounded-lg border p-2 text-sm">
-                  <Link href={`/candidates/${a.candidate.id}`} className="font-medium text-indigo-600">{a.candidate.fullName}</Link>
-                  {a.matchingScore != null && <p className="text-xs text-slate-500">Score: {a.matchingScore}</p>}
-                  {a.isReferral && <span className="badge bg-amber-50 text-amber-700">Referral</span>}
+                  <Link href={`/candidates/${a.candidate.id}`} className="font-medium text-indigo-600">
+                    {a.candidate.fullName}
+                  </Link>
+                  {a.matchingScore != null && (
+                    <p className="text-xs text-slate-500">Score: {a.matchingScore}</p>
+                  )}
+                  {a.isReferral && (
+                    <span className="badge bg-amber-50 text-amber-700">Referral</span>
+                  )}
                   <div className="flex flex-wrap gap-1 mt-2">
+                    {stage === "APPLIED" && (
+                      <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "advance")}>
+                        Move to CV Screening
+                      </button>
+                    )}
                     {stage === "CV_SCREENING" && (
                       <>
                         <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "advance")}>Advance</button>
@@ -194,6 +208,11 @@ export default function OpeningDetailPage() {
                     )}
                     {stage === "OFFER" && (
                       <span className="text-xs text-slate-400">Xem chi tiết để cập nhật DocuSign</span>
+                    )}
+                    {stage === "ONBOARDING" && (
+                      <button className="text-xs btn-primary" onClick={() => moveStage(a.id, "onboard")}>
+                        ✓ Advance to Hired
+                      </button>
                     )}
                   </div>
                 </div>
