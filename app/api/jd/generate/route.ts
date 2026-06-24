@@ -20,7 +20,7 @@ Team: ${opening.team}
 Headcount: ${opening.openingsCount}
 Reason for hiring: ${opening.request.reason}
 
-Structure: Role Summary, Responsibilities (bullets), Requirements (bullets), What you'll gain (bullets).
+Structure: Role Summary, Responsibilities (bullets), Requirements (bullets), What you will gain (bullets).
 Keep it concise, professional, in English. Return plain text only, no markdown headers with #.`);
 
     return NextResponse.json({ jdText });
