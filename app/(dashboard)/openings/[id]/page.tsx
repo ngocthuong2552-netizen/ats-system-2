@@ -16,8 +16,6 @@ export default function OpeningDetailPage() {
   const [jdDraft, setJdDraft] = useState("");
   const [showAddCandidate, setShowAddCandidate] = useState(false);
   const [candForm, setCandForm] = useState({ fullName: "", email: "", phone: "", source: "Referral", isReferral: false });
-  const [cvFile, setCvFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
 
   function load() {
     fetch(`/api/openings/${id}`).then((r) => r.json()).then((d) => {
@@ -48,47 +46,21 @@ export default function OpeningDetailPage() {
 
   async function addCandidate(e: React.FormEvent) {
     e.preventDefault();
-    let cvFileUrl, cvFileName, cvText;
-
-    if (cvFile) {
-      setUploading(true);
-      const fd = new FormData();
-      fd.append("file", cvFile);
-      const upRes = await fetch("/api/upload", { method: "POST", body: fd });
-      const upData = await upRes.json();
-      setUploading(false);
-      if (!upRes.ok) {
-        alert(upData.error || "Upload thất bại");
-        return;
-      }
-      cvFileUrl = upData.fileUrl;
-      cvFileName = upData.fileName;
-      cvText = upData.cvText;
-    }
-
     const res = await fetch("/api/candidates", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...candForm, jobOpeningId: id, cvFileUrl, cvFileName }),
+      body: JSON.stringify({ ...candForm, jobOpeningId: id }),
     });
     const candidate = await res.json();
-
-    if (cvText && candidate?.id) {
-      await fetch(`/api/candidates/${candidate.id}/parse-cv`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cvText }),
-      });
-    }
-
+    if (!candidate?.id) { alert("Failed to add applicant"); return; }
     setShowAddCandidate(false);
     setCandForm({ fullName: "", email: "", phone: "", source: "Referral", isReferral: false });
-    setCvFile(null);
     load();
   }
 
   async function moveStage(applicationId: string, outcome: string) {
     let rejectionReason;
     if (outcome === "reject" || outcome === "position_filled") {
-      rejectionReason = prompt("Lý do từ chối (bắt buộc):");
+      rejectionReason = prompt("Reason for rejection (required):");
       if (!rejectionReason) return;
     }
     const res = await fetch(`/api/applications/${applicationId}/transition`, {
@@ -97,12 +69,12 @@ export default function OpeningDetailPage() {
     });
     const data = await res.json();
     if (data.emailDrafts?.length) {
-      alert(`Email draft đã tạo: ${data.emailDrafts.map((d: any) => d.templateKey).join(", ")}\nVào trang ứng viên để xem & gửi.`);
+      alert(`✉️ Email drafts created: ${data.emailDrafts.map((d: any) => d.templateKey).join(", ")}\nView them on the applicant profile.`);
     }
     load();
   }
 
-  if (!opening) return <p className="text-slate-500">Đang tải...</p>;
+  if (!opening) return <p className="text-slate-500">Loading...</p>;
 
   const byStage: Record<string, any[]> = {};
   STAGES.forEach((s) => (byStage[s] = []));
@@ -114,105 +86,119 @@ export default function OpeningDetailPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">{opening.title}</h1>
-        <p className="text-slate-500">{opening.team} · Seats {opening.filledCount}/{opening.openingsCount} · {opening.status}</p>
+        <p className="text-slate-500">{opening.team} · Headcount: {opening.openingsCount} · {opening.status}</p>
       </div>
 
       <div className="card">
         <div className="flex items-center justify-between mb-2">
           <p className="font-medium">Job Description</p>
           <button className="btn-secondary" onClick={generateJD} disabled={genLoading}>
-            {genLoading ? "Đang tạo..." : "✨ Generate JD (AI)"}
+            {genLoading ? "Generating..." : "✨ Generate JD (AI)"}
           </button>
         </div>
-        <textarea className="input h-40" value={jdDraft} onChange={(e) => setJdDraft(e.target.value)} placeholder="JD sẽ hiện ở đây..." />
+        <textarea className="input h-40" value={jdDraft}
+          onChange={(e) => setJdDraft(e.target.value)}
+          placeholder="Job description will appear here..." />
         <button className="btn-primary mt-2" onClick={saveJD}>Save JD</button>
       </div>
 
       <div className="flex items-center justify-between">
         <p className="font-medium">Pipeline</p>
-        <button className="btn-primary" onClick={() => setShowAddCandidate(!showAddCandidate)}>+ Add Candidate</button>
+        <button className="btn-primary" onClick={() => setShowAddCandidate(!showAddCandidate)}>
+          + Add Applicant
+        </button>
       </div>
 
       {showAddCandidate && (
         <form onSubmit={addCandidate} className="card grid grid-cols-2 gap-4">
-          <div><label className="label">Full name</label>
-            <input className="input" required value={candForm.fullName} onChange={(e) => setCandForm({ ...candForm, fullName: e.target.value })} /></div>
-          <div><label className="label">Email</label>
-            <input type="email" className="input" required value={candForm.email} onChange={(e) => setCandForm({ ...candForm, email: e.target.value })} /></div>
-          <div><label className="label">Phone</label>
-            <input className="input" value={candForm.phone} onChange={(e) => setCandForm({ ...candForm, phone: e.target.value })} /></div>
-          <div><label className="label">Source</label>
-            <input className="input" value={candForm.source} onChange={(e) => setCandForm({ ...candForm, source: e.target.value })} /></div>
+          <div>
+            <label className="label">Full Name</label>
+            <input className="input" required value={candForm.fullName}
+              onChange={(e) => setCandForm({ ...candForm, fullName: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Email</label>
+            <input type="email" className="input" required value={candForm.email}
+              onChange={(e) => setCandForm({ ...candForm, email: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Phone</label>
+            <input className="input" value={candForm.phone}
+              onChange={(e) => setCandForm({ ...candForm, phone: e.target.value })} />
+          </div>
+          <div>
+            <label className="label">Source</label>
+            <select className="input" value={candForm.source}
+              onChange={(e) => setCandForm({ ...candForm, source: e.target.value })}>
+              <option>Referral</option>
+              <option>LinkedIn</option>
+              <option>Website</option>
+              <option>Facebook</option>
+              <option>Other</option>
+            </select>
+          </div>
           <label className="flex items-center gap-2 col-span-2 text-sm">
-            <input type="checkbox" checked={candForm.isReferral} onChange={(e) => setCandForm({ ...candForm, isReferral: e.target.checked })} />
-            Referral candidate (fast-track eligible)
+            <input type="checkbox" checked={candForm.isReferral}
+              onChange={(e) => setCandForm({ ...candForm, isReferral: e.target.checked })} />
+            Referral candidate (eligible for fast-track)
           </label>
-          <div className="col-span-2">
-            <label className="label">CV file (PDF/DOCX) — sẽ tự AI-parse</label>
-            <input type="file" accept=".pdf,.docx" className="input"
-              onChange={(e) => setCvFile(e.target.files?.[0] || null)} />
-          </div>
-          <div className="col-span-2 text-xs text-slate-400">
-            Có thể bỏ trống CV và nhập tay; có thể parse lại sau ở trang Candidate Profile.
-          </div>
-          <div className="col-span-2">
-            <button className="btn-primary" type="submit" disabled={uploading}>
-              {uploading ? "Đang upload & trích xuất..." : "Add"}
-            </button>
+          <div className="col-span-2 flex gap-2">
+            <button className="btn-primary" type="submit">Add</button>
+            <button className="btn-secondary" type="button" onClick={() => setShowAddCandidate(false)}>Cancel</button>
           </div>
         </form>
       )}
 
-      <div className="grid grid-cols-7 gap-3 overflow-x-auto">
+      <div className="flex gap-3 overflow-x-auto pb-4">
         {STAGES.map((stage) => (
-          <div key={stage} className="min-w-[180px] bg-slate-50 rounded-lg p-3">
-            <p className="text-sm font-medium mb-2">
+          <div key={stage} className="min-w-[160px] flex-shrink-0 bg-slate-50 rounded-xl p-3">
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
               {STAGE_LABELS[stage]} <span className="text-slate-400">({byStage[stage].length})</span>
             </p>
             <div className="space-y-2">
               {byStage[stage].map((a: any) => (
-                <div key={a.id} className="bg-white rounded-lg border p-2 text-sm">
-                  <Link href={`/candidates/${a.candidate.id}`} className="font-medium text-indigo-600">
+                <div key={a.id} className="bg-white rounded-lg border border-slate-200 p-2.5 text-sm shadow-sm">
+                  <Link href={`/applicants/${a.candidate.id}`}
+                    className="font-medium text-indigo-600 hover:underline block">
                     {a.candidate.fullName}
                   </Link>
                   {a.matchingScore != null && (
-                    <p className="text-xs text-slate-500">Score: {a.matchingScore}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Score: {a.matchingScore}</p>
                   )}
-                  {a.isReferral && (
-                    <span className="badge bg-amber-50 text-amber-700">Referral</span>
+                  {a.candidate.isReferral && (
+                    <span className="badge bg-amber-50 text-amber-600 text-xs mt-1">Referral</span>
                   )}
-                  <div className="flex flex-wrap gap-1 mt-2">
+                  <div className="flex gap-1 mt-2 flex-wrap">
                     {stage === "APPLIED" && (
-                      <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "advance")}>
-                        Move to CV Screening
-                      </button>
+                      <button title="Move to CV Screening" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "advance")}>▶️</button>
                     )}
-                    {stage === "CV_SCREENING" && (
-                      <>
-                        <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "advance")}>Advance</button>
-                        <button className="text-xs btn-danger" onClick={() => moveStage(a.id, "reject")}>Reject</button>
-                        <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "position_filled")}>Filled</button>
-                      </>
-                    )}
-                    {stage === "CULTURE_FIT" && (
-                      <>
-                        <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "advance")}>Advance</button>
-                        <button className="text-xs btn-danger" onClick={() => moveStage(a.id, "reject")}>Reject</button>
-                      </>
-                    )}
-                    {stage === "TECHNICAL" && (
-                      <>
-                        <button className="text-xs btn-secondary" onClick={() => moveStage(a.id, "offer")}>Offer</button>
-                        <button className="text-xs btn-danger" onClick={() => moveStage(a.id, "reject")}>Reject</button>
-                      </>
-                    )}
+                    {stage === "CV_SCREENING" && (<>
+                      <button title="Advance" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "advance")}>✅</button>
+                      <button title="Reject" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "reject")}>❌</button>
+                      <button title="Position Filled" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "position_filled")}>🔒</button>
+                    </>)}
+                    {stage === "CULTURE_FIT" && (<>
+                      <button title="Advance to Technical" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "advance")}>✅</button>
+                      <button title="Reject" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "reject")}>❌</button>
+                    </>)}
+                    {stage === "TECHNICAL" && (<>
+                      <button title="Send Offer" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "offer")}>🎉</button>
+                      <button title="Reject" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "reject")}>❌</button>
+                    </>)}
                     {stage === "OFFER" && (
-                      <span className="text-xs text-slate-400">Xem chi tiết để cập nhật DocuSign</span>
+                      <span className="text-xs text-slate-400">Update DocuSign on profile</span>
                     )}
                     {stage === "ONBOARDING" && (
-                      <button className="text-xs btn-primary" onClick={() => moveStage(a.id, "onboard")}>
-                        ✓ Advance to Hired
-                      </button>
+                      <button title="Mark as Hired" className="text-lg hover:scale-110 transition"
+                        onClick={() => moveStage(a.id, "onboard")}>🏆</button>
                     )}
                   </div>
                 </div>
