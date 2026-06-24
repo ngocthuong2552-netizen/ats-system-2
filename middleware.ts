@@ -5,10 +5,11 @@ export const config = {
     "/requests/:path*",
     "/openings/:path*",
     "/candidates/:path*",
+    "/applicants/:path*",
     "/dashboard/:path*",
     "/interviews/:path*",
     "/settings/:path*",
-    "/talent-pool/:path*",
+    "/ld/:path*",
     "/assistant/:path*",
   ],
 };
