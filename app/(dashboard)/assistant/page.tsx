@@ -3,7 +3,7 @@ import { useState } from "react";
 
 export default function AssistantPage() {
   const [messages, setMessages] = useState<{ role: "user" | "bot"; text: string }[]>([
-    { role: "bot", text: "Xin chào! Hỏi tôi về trạng thái ứng viên (vd: \"Linh Tran đang ở đâu?\") hoặc quy trình tuyển dụng." },
+    { role: "bot", text: "Hello! Ask me about candidate status (e.g. \"Where is Linh Tran in the pipeline?\") or any recruitment process questions." },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,12 +15,13 @@ export default function AssistantPage() {
     setInput("");
     setLoading(true);
     const res = await fetch("/api/chatbot", {
-      method: "POST", headers: { "Content-Type": "application/json" },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question }),
     });
     const data = await res.json();
     setLoading(false);
-    setMessages((m) => [...m, { role: "bot", text: data.answer || data.error || "Có lỗi xảy ra." }]);
+    setMessages((m) => [...m, { role: "bot", text: data.answer || data.error || "An error occurred." }]);
   }
 
   return (
@@ -32,15 +33,22 @@ export default function AssistantPage() {
             <div key={i} className={m.role === "user" ? "text-right" : "text-left"}>
               <span className={`inline-block rounded-lg px-3 py-2 text-sm max-w-[80%] ${
                 m.role === "user" ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-800"
-              }`}>{m.text}</span>
+              }`}>
+                {m.text}
+              </span>
             </div>
           ))}
-          {loading && <p className="text-xs text-slate-400">Đang trả lời...</p>}
+          {loading && <p className="text-xs text-slate-400">Thinking...</p>}
         </div>
         <div className="flex gap-2 mt-3">
-          <input className="input" value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Nhập câu hỏi..." />
-          <button className="btn-primary" onClick={send} disabled={loading}>Gửi</button>
+          <input
+            className="input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && send()}
+            placeholder="Ask a question..."
+          />
+          <button className="btn-primary" onClick={send} disabled={loading}>Send</button>
         </div>
       </div>
     </div>
