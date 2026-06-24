@@ -1,51 +1,41 @@
 import { NextResponse } from "next/server";
+import { generateJSON } from "@/lib/ai/gemini";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const openingId = searchParams.get("openingId");
-  const candidates = await prisma.candidate.findMany({
-    where: openingId
-      ? { applications: { some: { jobOpeningId: openingId } } }
-      : undefined,
-    include: { applications: true },
-    orderBy: { createdAt: "desc" },
-  });
-  return NextResponse.json(candidates);
-}
+export async function POST(req: Request, { params }: { params: { id: string } }) {
+  const { cvText, cvFileUrl, cvFileName } = await req.json();
+  if (!cvText) return NextResponse.json({ error: "cvText required" }, { status: 400 });
 
-// Create candidate + application (no AI parsing here; CV text/file handled client-side
-// then sent to /api/candidates/[id]/parse-cv, or fields entered manually)
-export async function POST(req: Request) {
-  const body = await req.json();
-  const { fullName, email, phone, jobOpeningId, source, isReferral, referrer, cvFileName, cvFileUrl } = body;
+  let parsed;
+  try {
+    parsed = await generateJSON(`Extract structured candidate data from this CV text. Return ONLY valid JSON matching this shape exactly:
+{"full_name": string, "email": string, "phone": string, "skills": string[], "experience_years": number, "education": [{"school": string, "degree": string}], "certifications": string[]}
 
-  if (!fullName || !email || !jobOpeningId) {
-    return NextResponse.json({ error: "fullName, email, jobOpeningId required" }, { status: 400 });
+CV TEXT:
+"""
+${cvText.slice(0, 8000)}
+"""`);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message || "AI returned invalid JSON" }, { status: 502 });
   }
 
-  const candidate = await prisma.candidate.create({
+  const updated = await prisma.candidate.update({
+    where: { id: params.id },
     data: {
-      fullName,
-      email,
-      phone,
-      isReferral: !!isReferral,
-      referrer,
-      cvFileName,
-      cvFileUrl,
-      applications: {
-        create: {
-          jobOpeningId,
-          source,
-          stage: "APPLIED",
-          status: "ACTIVE",
-        },
-      },
+      fullName: parsed.full_name || undefined,
+      email: parsed.email || undefined,
+      phone: parsed.phone || undefined,
+      skills: JSON.stringify(parsed.skills || []),
+      experienceYears: parsed.experience_years ?? undefined,
+      education: JSON.stringify(parsed.education || []),
+      certifications: JSON.stringify(parsed.certifications || []),
+      cvFileUrl: cvFileUrl || undefined,
+      cvFileName: cvFileName || undefined,
     },
-    include: { applications: true },
   });
 
-  return NextResponse.json(candidate, { status: 201 });
+  return NextResponse.json(updated);
 }
